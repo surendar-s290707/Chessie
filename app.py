@@ -161,27 +161,54 @@ def analyze():
     
     opening_html = ""
 
-    for opening, count in sorted(
-        result["opening_stats"].items(),
-        key=lambda x: x[1],
+    for opening, data in sorted(
+        result["grouped_openings"].items(),
+        key=lambda x: x[1]["games"],
         reverse=True
     ):
 
-        search_query = opening.replace(" ", "+")
-
-        url = (
-            "https://www.google.com/search?q="
-            + search_query
-            + "+chess.com"
-        )
-
         opening_html += f"""
-        <p>
-        <a href="{url}" target="_blank">
-        {opening}
-        </a>: {count}
-        </p>
+        <details>
+
+            <summary>
+
+                <b>{opening}</b>
+
+                ({data['games']} games)
+
+                W:{data['win_pct']}%
+
+                D:{data['draw_pct']}%
+
+                L:{data['loss_pct']}%
+
+            </summary>
         """
+
+        for variation, vdata in sorted(
+            data["variations"].items(),
+            key=lambda x: x[1]["games"],
+            reverse=True
+        ):
+
+            opening_html += f"""
+            <p style="margin-left:20px;">
+
+                {variation}
+
+                ({vdata['games']} games)
+
+                W:{vdata['win_pct']}%
+
+                D:{vdata['draw_pct']}%
+
+                L:{vdata['loss_pct']}%
+
+            </p>
+            """
+
+        opening_html += "</details><br>"
+        
 
         # -----------------------------------
         # FINAL PAGE

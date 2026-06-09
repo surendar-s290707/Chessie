@@ -50,7 +50,7 @@ def castling_delay(moves):
 # -----------------------------------
 
 def analyze_openings(username,num_games=50,time_class="all"):
-
+    
     archives_url = f"https://api.chess.com/pub/player/{username}/games/archives"
 
     response = requests.get(archives_url, headers=HEADERS)
@@ -117,7 +117,8 @@ def analyze_openings(username,num_games=50,time_class="all"):
     # -----------------------------------
 
     opening_stats = {}
-
+    opening_results = {}
+    grouped_openings={}
     total_games = 0
     total_moves = 0
 
@@ -174,7 +175,7 @@ def analyze_openings(username,num_games=50,time_class="all"):
         moves = []
 
         for move in game_obj.mainline_moves():
-            player_moves = moves[::2] if is_white else moves[1::2]
+            
 
             try:
 
@@ -184,7 +185,39 @@ def analyze_openings(username,num_games=50,time_class="all"):
                 continue
             moves.append(san)
             board.push(move)
+        player_moves = moves[::2] if is_white else moves[1::2]
 
+        opening_summary = {}
+        for opening, stats in opening_results.items():
+
+            total = (
+                stats["win"]
+                + stats["loss"]
+                + stats["draw"]
+            )
+
+            if total == 0:
+                continue
+
+            opening_summary[opening] = {
+
+                "win_pct": round(
+                    stats["win"] * 100 / total,
+                    1
+                ),
+
+                "draw_pct": round(
+                    stats["draw"] * 100 / total,
+                    1
+                ),
+
+                "loss_pct": round(
+                    stats["loss"] * 100 / total,
+                    1
+                ),
+
+                "games": total
+            }
         # -----------------------------------
         # GAME LENGTH
         # -----------------------------------
@@ -201,12 +234,137 @@ def analyze_openings(username,num_games=50,time_class="all"):
         opening_data = find_opening(moves, OPENING_BOOK)
 
         if opening_data:
-            opening = opening_data["name"]
+            opening_name = opening_data["name"]
         else:
-            opening = "Unknown"
+            opening_name = "Unknown"
+        
+        # -------------------------
+        # Parent Opening + Variation
+        # -------------------------
+       
+        if ":" in opening_name:
 
-        opening_stats[opening] = opening_stats.get(opening, 0) + 1
+            parent_opening = opening_name.split(":")[0].strip()
 
+            variation = opening_name.split(":", 1)[1].strip()
+
+        else:
+
+            parent_opening = opening_name
+
+            variation = "Main Line"
+        
+        opening_stats[opening_name] = (opening_stats.get(opening_name, 0) + 1)
+
+        # -------------------------
+        # Create opening bucket
+        # -------------------------
+
+        if parent_opening not in grouped_openings:
+
+            grouped_openings[parent_opening] = {
+
+                "games": 0,
+                "win": 0,
+                "draw": 0,
+                "loss": 0,
+
+                "variations": {}
+            }
+
+
+        grouped_openings[parent_opening]["games"] += 1
+
+
+        # -------------------------
+        # Create variation bucket
+        # -------------------------
+
+        if variation not in grouped_openings[parent_opening]["variations"]:
+
+            grouped_openings[parent_opening]["variations"][variation] = {
+
+                "games": 0,
+                "win": 0,
+                "draw": 0,
+                "loss": 0
+            }
+
+
+        grouped_openings[parent_opening]["variations"][variation]["games"] += 1
+
+        opening_stats[opening_name] = opening_stats.get(opening_name, 0) + 1
+        if opening_name not in opening_results:
+
+            opening_results[opening_name] = {
+                "win": 0,
+                "loss": 0,
+                "draw": 0
+            }
+
+        
+
+        if is_white:
+
+            result = game["white"]["result"]
+
+        else:
+
+            result = game["black"]["result"]
+
+
+        if result == "win":
+
+            opening_results[opening_name]["win"] += 1
+
+            grouped_openings[parent_opening]["win"] += 1
+
+            grouped_openings[parent_opening]["variations"][variation]["win"] += 1
+
+        elif result in [
+            "agreed",
+            "repetition",
+            "stalemate",
+            "timevsinsufficient",
+            "insufficient",
+            "50move"
+        ]:
+
+            opening_results[opening_name]["draw"] += 1
+
+            grouped_openings[parent_opening]["draw"] += 1
+
+            grouped_openings[parent_opening]["variations"][variation]["draw"] += 1
+
+        else:
+
+            opening_results[opening_name]["loss"] += 1
+
+            grouped_openings[parent_opening]["loss"] += 1
+
+            grouped_openings[parent_opening]["variations"][variation]["loss"] += 1
+                
+        
+        # return {
+        #     "opening_stats": opening_stats,
+        #     "opening_results": opening_results,
+        #     ...
+        # }
+    
+
+        # for opening, data in opening_results.items():
+
+        #     total = (
+        #         data["win"]
+        #         + data["loss"]
+        #         + data["draw"]
+        #     )
+
+        # winrate = (
+        #     data["win"] / total * 100
+        #     if total > 0
+        #     else 0
+        # )
         # -----------------------------------
         # EARLY QUEEN
         # -----------------------------------
@@ -239,7 +397,7 @@ def analyze_openings(username,num_games=50,time_class="all"):
 
             if game["white"]["result"] == "lose":
 
-                if game_length < 15:
+                if full_moves < 15:
                     early_losses += 1
 
         elif game["black"]["username"].lower() == username_lower:
@@ -276,6 +434,44 @@ def analyze_openings(username,num_games=50,time_class="all"):
         total_moves / total_games, 1
     )
 
+    for opening, data in grouped_openings.items():
+
+        total = data["games"]
+
+        data["win_pct"] = round(
+            data["win"] * 100 / total,
+            1
+        )
+
+        data["draw_pct"] = round(
+            data["draw"] * 100 / total,
+            1
+        )
+
+        data["loss_pct"] = round(
+            data["loss"] * 100 / total,
+            1
+        )
+
+        for variation, vdata in data["variations"].items():
+
+            vtotal = vdata["games"]
+
+            vdata["win_pct"] = round(
+                vdata["win"] * 100 / vtotal,
+                1
+            )
+
+            vdata["draw_pct"] = round(
+                vdata["draw"] * 100 / vtotal,
+                1
+            )
+
+            vdata["loss_pct"] = round(
+                vdata["loss"] * 100 / vtotal,
+                1
+            )
+
     # -----------------------------------
     # RETURN EVERYTHING
     # -----------------------------------
@@ -284,7 +480,13 @@ def analyze_openings(username,num_games=50,time_class="all"):
 
         "opening_stats": opening_stats,
 
+        "opening_results": opening_results,
+
+        "grouped_openings": grouped_openings,
+
         "early_queen_rate": early_queen_rate,
+
+        "opening_summary": opening_summary,
 
         "development_delay_rate": development_delay_rate,
 
@@ -324,7 +526,21 @@ if __name__ == "__main__":
             reverse=True
         ):
 
-            print(f"{opening}: {count}")
+            summary = result["opening_summary"].get(opening)
+
+            if summary:
+
+                print(
+                    f"{opening} "
+                    f"W:{summary['win_pct']}% "
+                    f"D:{summary['draw_pct']}% "
+                    f"L:{summary['loss_pct']}% "
+                    f"({summary['games']} games)"
+                )
+
+            else:
+
+                print(opening)
 
         print("\n===== BEHAVIOR =====\n")
 
