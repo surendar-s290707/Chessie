@@ -1,7 +1,7 @@
 import requests
 import io
 import chess.pgn
-
+from explorer import get_next_moves
 from openings import load_openings, find_opening
 
 # -----------------------------------
@@ -49,29 +49,34 @@ def castling_delay(moves):
 # MAIN ANALYZER
 # -----------------------------------
 
-def analyze_openings(username,num_games=50,time_class="all"):
-    
+def get_games(
+    username,
+    num_games=50,
+    color="all",
+    time_class="all"
+):
+
     archives_url = f"https://api.chess.com/pub/player/{username}/games/archives"
 
-    response = requests.get(archives_url, headers=HEADERS)
+    response = requests.get(
+        archives_url,
+        headers=HEADERS
+    )
 
     if response.status_code != 200:
-        return {
-            "error": "Failed to fetch archives"
-        }
+        return None
 
-    archives = response.json().get("archives", [])
+    archives = response.json().get(
+        "archives",
+        []
+    )
 
     if not archives:
-        return {
-            "error": "No games found"
-        }
-
-    # -----------------------------------
-    # ONLY LAST MONTH
-    # -----------------------------------
+        return []
 
     games = []
+
+    username_lower = username.lower()
 
     for archive_url in reversed(archives):
 
@@ -88,30 +93,83 @@ def analyze_openings(username,num_games=50,time_class="all"):
             []
         )
 
-        for game in monthly_games:
-            
+        for game in reversed(monthly_games):
 
-            # FORMAT FILTER
-            if time_class != "all":
+            # Time Control Filter
+            if (
+                time_class != "all"
+                and game.get("time_class") != time_class
+            ):
+                continue
 
-                if game.get("time_class") != time_class:
-                    continue
-
-            # RULES FILTER
+            # Standard Chess Only
             if game.get("rules") != "chess":
                 continue
 
-            # PGN FILTER
+            # Color Filter
+            is_white = (
+                game["white"]["username"].lower()
+                == username_lower
+            )
+
+            if color == "white" and not is_white:
+                continue
+
+            if color == "black" and is_white:
+                continue
+
+            # PGN Required
             if "pgn" not in game:
                 continue
 
             games.append(game)
 
             if len(games) >= num_games:
-                break
+                return games
 
-        if len(games) >= num_games:
-            break
+    return games
+
+def analyze_openings(username,num_games=50,color="all",time_class="all"):
+    
+    
+
+    games = get_games(
+    username,
+    num_games,
+    color,
+    time_class
+    )
+
+    from position_tree import build_position_tree
+
+    tree = build_position_tree(games)
+    print(len(tree))
+    
+    print("\n========== EXPLORER TEST ==========")
+
+    result = get_next_moves(
+        games,
+        ["e4"]
+    )
+
+    print(result)
+
+    print("===================================\n")
+    if games is None:
+        return {
+            "error": "Failed to fetch archives"
+        }
+
+    if not games:
+        return {
+            "error": "No games found"
+        }
+
+    # -----------------------------------
+    # ONLY LAST MONTH
+    # -----------------------------------
+
+ 
     # -----------------------------------
     # STATS
     # -----------------------------------
@@ -130,28 +188,13 @@ def analyze_openings(username,num_games=50,time_class="all"):
     # -----------------------------------
     # PROCESS GAMES
     # -----------------------------------
-    username_lower = username.lower()
+    username_lower = username.lower()    
     for game in games:
-        is_white = game["white"]["username"].lower() == username_lower
-
+    
+        is_white = (
+            game["white"]["username"].lower() == username_lower
+        )
 # SAN moves are interleaved: white, black, white, black...
-        
-        # if time_class != "all":
-        #     pass
-
-        #     if game.get("time_class") != time_class:
-        #         continue
-        # # if not game.get("rated"):
-        # #     continue
-
-        # # if game.get("time_class") != "rapid":
-        # #     continue
-
-        # if game.get("rules") != "chess":
-        #     continue
-
-        # if "pgn" not in game:
-        #     continue
 
         pgn = game["pgn"]
 
@@ -187,37 +230,7 @@ def analyze_openings(username,num_games=50,time_class="all"):
             board.push(move)
         player_moves = moves[::2] if is_white else moves[1::2]
 
-        opening_summary = {}
-        for opening, stats in opening_results.items():
-
-            total = (
-                stats["win"]
-                + stats["loss"]
-                + stats["draw"]
-            )
-
-            if total == 0:
-                continue
-
-            opening_summary[opening] = {
-
-                "win_pct": round(
-                    stats["win"] * 100 / total,
-                    1
-                ),
-
-                "draw_pct": round(
-                    stats["draw"] * 100 / total,
-                    1
-                ),
-
-                "loss_pct": round(
-                    stats["loss"] * 100 / total,
-                    1
-                ),
-
-                "games": total
-            }
+       
         # -----------------------------------
         # GAME LENGTH
         # -----------------------------------
@@ -254,7 +267,7 @@ def analyze_openings(username,num_games=50,time_class="all"):
 
             variation = "Main Line"
         
-        opening_stats[opening_name] = (opening_stats.get(opening_name, 0) + 1)
+    
 
         # -------------------------
         # Create opening bucket
@@ -312,7 +325,7 @@ def analyze_openings(username,num_games=50,time_class="all"):
 
             result = game["black"]["result"]
 
-
+        
         if result == "win":
 
             opening_results[opening_name]["win"] += 1
@@ -345,26 +358,7 @@ def analyze_openings(username,num_games=50,time_class="all"):
             grouped_openings[parent_opening]["variations"][variation]["loss"] += 1
                 
         
-        # return {
-        #     "opening_stats": opening_stats,
-        #     "opening_results": opening_results,
-        #     ...
-        # }
-    
-
-        # for opening, data in opening_results.items():
-
-        #     total = (
-        #         data["win"]
-        #         + data["loss"]
-        #         + data["draw"]
-        #     )
-
-        # winrate = (
-        #     data["win"] / total * 100
-        #     if total > 0
-        #     else 0
-        # )
+        
         # -----------------------------------
         # EARLY QUEEN
         # -----------------------------------
@@ -391,7 +385,6 @@ def analyze_openings(username,num_games=50,time_class="all"):
         # -----------------------------------
         full_moves = len(moves) / 2
 
-        username_lower = username.lower()
 
         if game["white"]["username"].lower() == username_lower:
 
@@ -471,7 +464,37 @@ def analyze_openings(username,num_games=50,time_class="all"):
                 vdata["loss"] * 100 / vtotal,
                 1
             )
+    opening_summary = {}
+    for opening, stats in opening_results.items():
 
+        total = (
+            stats["win"]
+            + stats["loss"]
+            + stats["draw"]
+        )
+
+        if total == 0:
+            continue
+
+        opening_summary[opening] = {
+
+            "win_pct": round(
+                stats["win"] * 100 / total,
+                1
+            ),
+
+            "draw_pct": round(
+                stats["draw"] * 100 / total,
+                1
+            ),
+
+            "loss_pct": round(
+                stats["loss"] * 100 / total,
+                1
+            ),
+
+            "games": total
+        }
     # -----------------------------------
     # RETURN EVERYTHING
     # -----------------------------------

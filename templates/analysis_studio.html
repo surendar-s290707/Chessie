@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Chessie Analysis Studio</title>
+    <link rel="stylesheet"
+    href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script src="https://unpkg.com/chess.js@1.0.0/chess.min.js"></script>
+
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <style>
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:Arial,sans-serif;
+        }
+
+        body{
+
+            background:#1d1d1d;
+            color:white;
+
+            height:100vh;
+
+            padding:20px;
+
+        }
+
+        h1{
+
+            margin-bottom:20px;
+            color:#f0d9b5;
+
+        }
+
+        .main{
+
+            display:grid;
+
+            grid-template-columns:280px 720px 360px;
+
+            justify-content:center;
+
+            gap:20px;
+
+        }
+
+        .header{
+
+            background:#303030;
+
+            color:#f0d9b5;
+
+            font-size:22px;
+
+            font-weight:bold;
+
+            padding:16px;
+
+            border-bottom:1px solid #444;
+
+        }
+
+        .content{
+
+            padding:18px;
+
+        }
+
+        .panel{
+
+            background:#262626;
+
+            border-radius:12px;
+
+            border:1px solid #3a3a3a;
+
+            overflow:hidden;
+
+        }
+
+        .bottom{
+
+            margin-top:20px;
+
+            background:#2b2b2b;
+
+            border-radius:15px;
+
+            padding:20px;
+
+            height:180px;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<h1>♟ Chessie Analysis Studio</h1>
+
+<div class="main">
+
+    <div class="panel">
+
+        <div class="header">
+            Explorer
+        </div>
+
+        <div class="content">
+
+        Current Position
+
+        <hr>
+
+        Popular Moves
+
+        <hr>
+
+        Opening Tree
+
+        </div>
+
+        
+
+    </div>
+
+    <div class="panel">
+
+
+        <div class="header">
+            Chess Board
+        </div>
+
+        <div class="content">
+
+            <div id="board" style="width:650px;"></div>
+
+            <br>
+
+            <div id="fen">
+
+                Waiting...
+
+            </div>
+
+        </div>
+
+
+
+    </div>
+
+    <div class="panel">
+
+        
+        <div class="header">
+            Position Statistics
+        </div>
+
+        <div class="content">
+
+        Best Move
+
+        <hr>
+
+        ACPL
+
+        <hr>
+
+        Move Quality
+
+        <hr>
+
+        Engine
+
+        </div>
+
+</div>
+
+    
+
+
+
+    <div class="bottom">
+
+        
+        <div class="header"> 
+            Games Reaching This Position
+        </div>
+
+
+        <div class="content">
+
+            No position selected.
+
+        </div>
+
+    </div>
+
+    
+
+</div>
+<script>
+
+var game = new Chess();
+
+var board = Chessboard('board',{
+
+    draggable:true,
+
+    position:'start',
+
+    onDrop:onDrop
+
+});
+
+function onDrop(source,target){
+
+    var move = game.move({
+
+        from:source,
+
+        to:target,
+
+        promotion:'q'
+
+    });
+
+    if(move===null){
+
+        return 'snapback';
+
+    }
+
+    board.position(game.fen());
+
+    document.getElementById("fen").innerHTML=game.fen();
+
+}
+
+</script>
+
+</body>
+
+</html>

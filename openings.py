@@ -6,11 +6,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def normalize_move(move):
     return (
-        move.replace("+", "")
+        move.replace("0-0-0", "O-O-O")  # Fix: Check queenside castling first
+            .replace("0-0", "O-O")      # Then check kingside castling
+            .replace("+", "")
             .replace("#", "")
             .replace("!", "")
             .replace("?", "")
-            .replace("0-0", "O-O")
             .lower()
     )
 
@@ -22,9 +23,9 @@ def clean_pgn_moves(pgn):
     return cleaned.strip()
 
 def load_openings():
-    opening_book = {}
+    # Fix: Use a list to prevent identical move lines from overwriting each other
+    opening_book = []
 
-    # Included all files including a_2.tsv as requested
     files = ["a.tsv", "a_2.tsv", "b.tsv", "c.tsv", "d.tsv", "e.tsv"]
 
     for file in files:
@@ -44,27 +45,26 @@ def load_openings():
                     continue
 
                 eco = row[0]
-                # THE FIX: We keep the raw string exactly as it is in the database.
-                # The simplify_opening_name function has been entirely deleted.
                 full_name = row[1].strip() 
                 pgn_moves = row[2]
 
                 cleaned_moves = clean_pgn_moves(pgn_moves)
 
-                opening_book[cleaned_moves] = {
+                opening_book.append({
+                    "moves": cleaned_moves,
                     "eco": eco,
-                    "name": full_name  # Stores exact variation name
-                }
+                    "name": full_name
+                })
 
     return opening_book
 
 def find_opening(moves, opening_book):
-    # Increased depth to 30 to catch extremely deep variation lines
-    game_moves = moves[:30]
+    # Fix: Removed arbitrary [:30] ply limitation to allow deep variation matching
+    game_moves = moves
     candidates = []
 
-    for opening_moves, data in opening_book.items():
-        opening_list = opening_moves.split()
+    for entry in opening_book:
+        opening_list = entry["moves"].split()
         opening_length = len(opening_list)
 
         if opening_length == 0:
@@ -84,8 +84,8 @@ def find_opening(moves, opening_book):
         match_percentage = (depth / opening_length) * 100.0
 
         candidates.append({
-            "eco": data["eco"],
-            "name": data["name"], 
+            "eco": entry["eco"],
+            "name": entry["name"], 
             "match_depth": depth,
             "opening_length": opening_length,
             "match_percentage": match_percentage
@@ -94,16 +94,13 @@ def find_opening(moves, opening_book):
     if not candidates:
         return None
 
-    # THE CORE ALGORITHM:
-    # 1. Match Depth: Always prioritize the line that matches the most actual moves in the game.
-    # 2. Match Percentage: If two variations match the same number of moves, 
-    #    pick the one where the book line perfectly ends at that move (100%).
-    # 3. Opening Length: Shortest line wins absolute ties to prevent false positive branching.
+    # Sorts by:
+    # 1. Match Depth (higher is better)
+    # 2. Match Percentage (higher is better, naturally breaking length ties)
     candidates.sort(
         key=lambda x: (
             x["match_depth"], 
-            x["match_percentage"], 
-            -x["opening_length"]
+            x["match_percentage"]
         ),
         reverse=True
     )
@@ -112,7 +109,7 @@ def find_opening(moves, opening_book):
 
     return {
         "eco": best_match["eco"],
-        "name": best_match["name"], # Returns the exact variation to chessie.py
+        "name": best_match["name"],
         "match_depth": best_match["match_depth"],
         "match_percentage": round(best_match["match_percentage"], 1)
     }
