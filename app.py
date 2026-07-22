@@ -1,11 +1,57 @@
 from flask import Flask, request,render_template
 from chessie import analyze_openings
+from flask import jsonify
+from position_tree import build_position_tree
 
 app = Flask(__name__)
 
 # -----------------------------------
 # HOME PAGE
 # -----------------------------------
+
+
+
+
+ANALYSIS = analyze_openings("SuryaSurendarS")
+
+POSITION_TREE = ANALYSIS["tree"]
+
+print("Loaded positions:", len(POSITION_TREE))
+first_fen = next(iter(POSITION_TREE))
+
+print("FIRST FEN:")
+print(first_fen)
+
+@app.route("/position", methods=["POST"])
+def position():
+
+    data = request.get_json()
+
+    moves = data["moves"]
+
+    print(moves)
+
+    print("Starting position exists:",
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+      in POSITION_TREE)
+
+    next_moves = get_next_moves(
+        GAMES,
+        moves
+    )
+
+    print(next_moves)
+
+    print(position_data)
+    
+    return jsonify({
+        "moves": [],
+        "best_move": "-",
+        "eval": "0.0",
+        "games_reaching": []
+    })
+       
+    
 @app.route("/studio")
 def studio():
 

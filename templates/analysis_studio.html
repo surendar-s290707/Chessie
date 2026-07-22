@@ -2,16 +2,16 @@
 <html>
 
 <head>
-
-    <title>Chessie Analysis Studio</title>
     <link rel="stylesheet"
-    href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+        href="{{ url_for('static', filename='css/chessboard.css') }}">
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <script src="https://unpkg.com/chess.js@1.0.0/chess.min.js"></script>
+        <script src="{{ url_for('static', filename='js/chessboard.js') }}"></script>
 
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <title>Chessie Analysis Studio</title>
+    
     <style>
 
         *{
@@ -115,7 +115,7 @@
             Explorer
         </div>
 
-        <div class="content">
+        <div class="content" id="explorer">
 
         Current Position
 
@@ -142,15 +142,13 @@
 
         <div class="content">
 
-            <div id="board" style="width:650px;"></div>
+            <div id="board" style="width:650px"></div>
 
-            <br>
+                <br>
 
-            <div id="fen">
-
-                Waiting...
-
-            </div>
+                <div id="fen">
+                    Waiting...
+                </div>
 
         </div>
 
@@ -165,7 +163,7 @@
             Position Statistics
         </div>
 
-        <div class="content">
+        <div class="content" id="stats">
 
         Best Move
 
@@ -197,7 +195,7 @@
         </div>
 
 
-        <div class="content">
+        <div class="content" id="games">
 
             No position selected.
 
@@ -208,43 +206,102 @@
     
 
 </div>
+
+
 <script>
 
-var game = new Chess();
+const game = new Chess();
+let moveHistory = [];
 
-var board = Chessboard('board',{
+var board = Chessboard('board', {
 
-    draggable:true,
+    position: 'start',
 
-    position:'start',
+    draggable: true,
 
-    onDrop:onDrop
+    pieceTheme:
+        'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
 
-});
+    onDrop: function(source, target) {
 
-function onDrop(source,target){
+    
 
-    var move = game.move({
+        const move = game.move({
 
-        from:source,
+            from: source,
+            to: target,
+            promotion: 'q'
 
-        to:target,
+        });
 
-        promotion:'q'
+        if (move === null) {
+            return 'snapback';
+        }
+        
+        board.position(game.fen());
+
+        document.getElementById("fen").innerHTML =
+            game.fen();
+        
+
+    
+
+        console.log("Move:", move.san);
+        moveHistory.push(move.san);
+
+        console.log(moveHistory);
+        fetch("/position", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            moves: moveHistory
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+
+        let html = "";
+
+        for(const move of data.moves){
+
+            html += `
+                <p>
+                    <b>${move.move}</b>
+                    — ${move.games} games
+                </p>
+            `;
+        }
+
+        document.getElementById("explorer").innerHTML = html;
+
+        document.getElementById("stats").innerHTML = `
+            <p><b>Best Move:</b> ${data.best_move}</p>
+            <p><b>Eval:</b> ${data.eval}</p>
+        `;
+
+        let gamesHtml = "";
+
+        for(const game of data.games_reaching){
+
+            gamesHtml += `<p>${game}</p>`;
+
+        }
+
+        document.getElementById("games").innerHTML =
+            gamesHtml;
+
+        
 
     });
 
-    if(move===null){
-
-        return 'snapback';
-
     }
 
-    board.position(game.fen());
+});
 
-    document.getElementById("fen").innerHTML=game.fen();
-
-}
+document.getElementById("fen").innerHTML =
+    game.fen();
 
 </script>
 

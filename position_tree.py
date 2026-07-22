@@ -3,7 +3,7 @@ import chess.pgn
 import io
 
 def build_position_tree(games):
-
+    
     tree = {}
 
     for game in games:
@@ -33,17 +33,18 @@ def build_position_tree(games):
                 tree[position] = {}
 
             if move_san not in tree[position]:
-                tree[position][move_san] = 0
 
-            tree[position][move] = {
-                "games": 0,
-                "wins": 0,
-                "losses": 0,
-                "draws": 0
-            }
+                tree[position][move_san] = {
 
-            tree[position][move]["games"] += 1 
+                    "games": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "draws": 0
+
+                }
+
+            tree[position][move_san]["games"] += 1
 
             board.push(move)
-
+    print("Positions:", len(tree))
     return tree

@@ -165,9 +165,7 @@ def analyze_openings(username,num_games=50,color="all",time_class="all"):
             "error": "No games found"
         }
 
-    # -----------------------------------
-    # ONLY LAST MONTH
-    # -----------------------------------
+    
 
  
     # -----------------------------------
@@ -500,6 +498,8 @@ def analyze_openings(username,num_games=50,color="all",time_class="all"):
     # -----------------------------------
 
     return {
+
+        "tree": tree,
 
         "opening_stats": opening_stats,
 
