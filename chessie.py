@@ -33,7 +33,7 @@ def development_delay(moves):
         if move.startswith("N") or move.startswith("B"):
             developed += 1
 
-    return developed < 2
+    return developed < 3
 
 
 def castling_delay(moves):
@@ -381,22 +381,23 @@ def analyze_openings(username,num_games=50,color="all",time_class="all"):
         # -----------------------------------
         # EARLY LOSS DETECTION
         # -----------------------------------
-        full_moves = len(moves) / 2
+        # Define all result codes that count as a loss in Chess.com API
+        LOSS_RESULTS = {"checkmated", "resigned", "timeout", "abandoned"}
 
+        # Determine player color
+        is_white = game["white"]["username"].lower() == username_lower
+        is_black = game["black"]["username"].lower() == username_lower
 
-        if game["white"]["username"].lower() == username_lower:
+        if is_white or is_black:
+            player_color = "white" if is_white else "black"
+            player_result = game[player_color]["result"]
+            
+            # Calculate full moves (assuming moves is a list of plys/half-moves)
+            full_moves = len(moves) // 2
 
-            if game["white"]["result"] == "lose":
-
-                if full_moves < 15:
-                    early_losses += 1
-
-        elif game["black"]["username"].lower() == username_lower:
-
-            if game["black"]["result"] == "lose":
-
-                if full_moves < 15:
-                    early_losses += 1
+            # Check loss condition and move count
+            if player_result in LOSS_RESULTS and full_moves < 15:
+                early_losses += 1
 
     # -----------------------------------
     # FINAL METRICS
