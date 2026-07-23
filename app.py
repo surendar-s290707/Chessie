@@ -52,12 +52,12 @@ def position():
     })
        
     
-@app.route("/studio")
-def studio():
+# @app.route("/studio")
+# def studio():
 
-    return render_template(
-        "analysis_studio.html"
-    )
+#     return render_template(
+#         "analysis_studio.html"
+#     )
 
 
 @app.route("/")
